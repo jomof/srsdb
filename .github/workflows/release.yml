@@ -1,0 +1,181 @@
+name: Release to PyPI
+
+on:
+  push:
+    tags:
+      - 'v*'  # Trigger on version tags like v0.1.0, v1.0.0, etc.
+
+permissions:
+  contents: write  # For creating GitHub releases
+  id-token: write  # For PyPI trusted publishing
+
+jobs:
+  build:
+    name: Build Distribution
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install build dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install build twine
+
+    - name: Extract version from tag
+      id: get_version
+      run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+    - name: Verify version consistency
+      run: |
+        TAG_VERSION="${{ steps.get_version.outputs.VERSION }}"
+        PKG_VERSION=$(python -c "import re; content=open('__init__.py').read(); print(re.search(r'__version__\s*=\s*[\"\\']([^\"\\'']+)[\"\\']', content).group(1))")
+        echo "Tag version: $TAG_VERSION"
+        echo "Package version: $PKG_VERSION"
+        if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
+          echo "Error: Version mismatch between tag ($TAG_VERSION) and package ($PKG_VERSION)"
+          exit 1
+        fi
+
+    - name: Build package
+      run: python -m build
+
+    - name: Check distribution
+      run: twine check dist/*
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: python-package-distributions
+        path: dist/
+
+  publish-pypi:
+    name: Publish to PyPI
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/srsdb
+
+    steps:
+    - name: Download build artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: python-package-distributions
+        path: dist/
+
+    - name: Publish to PyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        skip-existing: true
+
+  publish-github-release:
+    name: Create GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Download build artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: python-package-distributions
+        path: dist/
+
+    - name: Extract version from tag
+      id: get_version
+      run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+    - name: Generate release notes
+      id: release_notes
+      run: |
+        VERSION="${{ steps.get_version.outputs.VERSION }}"
+        cat > release_notes.md << EOF
+        # SRSDB v${VERSION}
+
+        ## Installation
+
+        \`\`\`bash
+        pip install srsdb==${VERSION}
+        \`\`\`
+
+        Or upgrade from a previous version:
+
+        \`\`\`bash
+        pip install --upgrade srsdb
+        \`\`\`
+
+        ## What's Included
+
+        - **FsrsDatabase**: Deterministic spaced repetition using FSRS algorithm
+        - **EbisuDatabase**: Bayesian spaced repetition using Ebisu algorithm (requires \`pip install ebisu\`)
+        - **35+ Unit Tests**: Comprehensive test coverage
+        - **Example Databases**: Pre-built examples for exploration
+
+        ## Links
+
+        - [Documentation](https://github.com/jomof/srsdb#readme)
+        - [PyPI Package](https://pypi.org/project/srsdb/${VERSION}/)
+        - [Examples](https://github.com/jomof/srsdb/tree/main/example)
+
+        ## Files
+
+        - \`srsdb-${VERSION}.tar.gz\` - Source distribution
+        - \`srsdb-${VERSION}-py3-none-any.whl\` - Python wheel
+        EOF
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: dist/*
+        body_path: release_notes.md
+        draft: false
+        prerelease: false
+        generate_release_notes: true
+
+  verify-installation:
+    name: Verify Installation
+    needs: publish-pypi
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.8', '3.9', '3.10', '3.11', '3.12']
+
+    steps:
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Extract version from tag
+      id: get_version
+      run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+    - name: Wait for PyPI
+      run: |
+        echo "Waiting 60 seconds for PyPI to process the release..."
+        sleep 60
+
+    - name: Install from PyPI
+      run: |
+        pip install srsdb==${{ steps.get_version.outputs.VERSION }}
+
+    - name: Verify import
+      run: |
+        python -c "import srsdb; from srsdb import FsrsDatabase; print(f'Successfully imported srsdb v{srsdb.__version__}')"
+
+    - name: Install with Ebisu
+      run: |
+        pip install ebisu
+
+    - name: Verify Ebisu import
+      run: |
+        python -c "from srsdb import EbisuDatabase; print('Successfully imported EbisuDatabase')"
