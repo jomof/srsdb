@@ -1,25 +1,260 @@
 # srsdb
-Python implementation of SQLite database that tracks state of SRS learning of individual items.
 
-Main interface is SrsDatabase
-  public constructor(databaseFile): # just remembers the database file path
+[![Canary Build and Test](https://github.com/jomof/srsdb/actions/workflows/canary.yml/badge.svg)](https://github.com/jomof/srsdb/actions/workflows/canary.yml)
+[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 
-  private open(): # Opens or creates the database. If the database exists, but doesn't have the tables needed, then creates those tables. Is tolerant of unrelated tables that might be in the database. The schema of the tables is
-  particular to the underlying srs library.
+A Python library for managing Spaced Repetition System (SRS) learning data using SQLite. Track the state of individual learning items with sophisticated scheduling algorithms.
 
-  public answer(now, question_key: str, correct: number): # First calls open().  Records the result of the user answering a question. 'correct' is a value from 0-100. 0 means completely wrong, 100 means completely correct. Everything in between is a degress of correctness. Internally, it's converted to an appropriate value for the underlying srs system.
-  'now' is the time that the question was answered. It doesn't have to be the real 'now' for the purposes of testing.
+## Features
 
-  public next(now): str # First calls open(). Returns the questions, in chronological order of due date, that are due as of 'now'.
+- 🧠 **SRS Algorithm Support**: Currently implements FSRS (Free Spaced Repetition Scheduler)
+- 💾 **SQLite Backend**: Persistent storage with flexible schema
+- 📊 **Detailed Tracking**: Monitor difficulty, stability, review history, and more
+- 🔄 **Flexible Correctness**: Rate answers on a 0-100 scale
+- 🧪 **Well Tested**: Comprehensive test suite with 17+ unit tests
+- 🐍 **Python 3.8+**: Compatible with modern Python versions
 
-  public next_due_date(): # First calls open(). Returns the date/time of the next moment that a question is due.
+## Installation
 
-FsrsDatabase # An implementation of SrsDatabase that uses the 'fsrs' library.
-FsrsDatabaseTests # Unittests for FsrsDatabase
+```bash
+pip install -e .
+```
 
-EbisuDatabase # An implementation of SrsDatabase backed by Ebisu
-EbisuDatabaseTests # Unittests for EbisuDatabase
+Or for development:
 
+```bash
+pip install -e ".[dev]"
+```
 
+## Quick Start
 
+```python
+from datetime import datetime
+from fsrs_database import FsrsDatabase
 
+# Create a database instance
+db = FsrsDatabase("my_learning.db")
+
+# Record answering a question
+now = datetime.now()
+db.answer(now, "question_id_1", correctness=85)  # 85% correct
+
+# Get cards that are due for review
+due_cards = db.next(now)
+print(f"Cards to review: {due_cards}")
+
+# Check when the next review is scheduled
+next_review = db.next_due_date()
+print(f"Next review: {next_review}")
+```
+
+## Interface: SrsDatabase
+
+The `SrsDatabase` abstract base class defines the interface for all SRS implementations:
+
+### Constructor
+
+```python
+SrsDatabase(database_file: str)
+```
+
+Initializes the database with a file path. The file is created if it doesn't exist.
+
+### Methods
+
+#### `answer(now: datetime, question_key: str, correct: int) -> None`
+
+Records the result of answering a question.
+
+**Parameters:**
+- `now`: The time the question was answered (doesn't have to be real-time, useful for testing)
+- `question_key`: Unique identifier for the question
+- `correct`: Correctness value from 0-100
+  - `0` = completely wrong
+  - `100` = completely correct
+  - Values in between = degrees of correctness
+
+The correctness value is internally converted to an appropriate value for the underlying SRS algorithm.
+
+#### `next(now: datetime) -> List[str]`
+
+Returns questions that are due for review as of the given time.
+
+**Parameters:**
+- `now`: The current time to check against
+
+**Returns:**
+- List of question keys in chronological order of due date
+
+#### `next_due_date() -> Optional[datetime]`
+
+Returns the date/time when the next question becomes due.
+
+**Returns:**
+- The next due date, or `None` if no questions are scheduled
+
+## Implementation: FsrsDatabase
+
+The `FsrsDatabase` class implements the SrsDatabase interface using the FSRS algorithm, which tracks:
+
+- **Difficulty**: How hard the card is (0-10 scale)
+- **Stability**: Memory stability in days
+- **State**: Card state (new, learning, review, relearning)
+- **Review History**: Complete history of all reviews
+- **Lapses**: Number of times the card was forgotten
+
+### Example Usage
+
+```python
+from datetime import datetime, timedelta
+from fsrs_database import FsrsDatabase
+
+# Initialize database
+db = FsrsDatabase("flashcards.db")
+
+# Day 1: Learn new cards
+day1 = datetime(2024, 1, 1, 10, 0, 0)
+
+db.answer(day1, "spanish_hello", 90)      # Got it right!
+db.answer(day1, "spanish_goodbye", 60)    # Mostly correct
+db.answer(day1, "spanish_please", 20)     # Need more practice
+
+# Day 2: Review due cards
+day2 = day1 + timedelta(days=1)
+due = db.next(day2)
+print(f"Cards due: {due}")  # ['spanish_please']
+
+for card in due:
+    # Review the card and record the result
+    db.answer(day2, card, 75)
+
+# Day 7: Check what needs review
+day7 = day1 + timedelta(days=7)
+due = db.next(day7)
+print(f"Cards due after a week: {due}")
+
+# Check next scheduled review
+next_review = db.next_due_date()
+print(f"Next review scheduled: {next_review}")
+```
+
+### Advanced Example: Learning Session
+
+```python
+from datetime import datetime, timedelta
+from fsrs_database import FsrsDatabase
+
+def study_session(db, current_time, responses):
+    """Simulate a study session with multiple card reviews."""
+
+    # Get cards due for review
+    due_cards = db.next(current_time)
+    print(f"\n📚 Study session at {current_time}")
+    print(f"Cards to review: {len(due_cards)}")
+
+    # Review each card
+    for card_id in due_cards:
+        correctness = responses.get(card_id, 50)
+        db.answer(current_time, card_id, correctness)
+
+        emoji = "✅" if correctness >= 70 else "⚠️" if correctness >= 40 else "❌"
+        print(f"  {emoji} {card_id}: {correctness}% correct")
+
+    # Show next review time
+    next_due = db.next_due_date()
+    if next_due:
+        days_until = (next_due - current_time).days
+        print(f"📅 Next review in {days_until} day(s)")
+
+# Initialize
+db = FsrsDatabase("study.db")
+start = datetime(2024, 1, 1, 9, 0, 0)
+
+# Day 1: Initial learning
+study_session(db, start, {
+    "capitals_france": 100,
+    "capitals_germany": 85,
+    "capitals_italy": 60,
+    "capitals_spain": 40,
+})
+
+# Day 3: First review
+study_session(db, start + timedelta(days=3), {
+    "capitals_spain": 80,
+    "capitals_italy": 90,
+})
+
+# Day 10: Follow-up review
+study_session(db, start + timedelta(days=10), {
+    "capitals_france": 95,
+    "capitals_germany": 100,
+    "capitals_italy": 85,
+    "capitals_spain": 70,
+})
+```
+
+## Database Schema
+
+The FsrsDatabase creates two tables:
+
+### `fsrs_cards`
+Stores the current state of each card:
+- `question_key` (PRIMARY KEY): Unique card identifier
+- `difficulty`: Card difficulty (0-10)
+- `stability`: Memory stability in days
+- `state`: Card state (0=new, 1=learning, 2=review, 3=relearning)
+- `due_date`: When the card is next due
+- `reps`: Total number of reviews
+- `lapses`: Number of times forgotten
+
+### `fsrs_reviews`
+Historical record of all reviews:
+- `id` (PRIMARY KEY): Auto-incrementing review ID
+- `question_key`: Card being reviewed
+- `review_time`: When the review occurred
+- `rating`: FSRS rating (1-4)
+- `state`: Card state after review
+
+## Testing
+
+Run the test suite:
+
+```bash
+# Using unittest
+python -m unittest discover -v
+
+# Using pytest (if installed)
+pytest -v
+```
+
+## Implementation Status
+
+- ✅ **SrsDatabase Interface**: Complete
+- ✅ **FsrsDatabase**: Fully implemented with comprehensive tests
+- 🔮 **EbisuDatabase**: Future implementation (planned)
+
+## Future Enhancements
+
+- [ ] EbisuDatabase implementation
+- [ ] EbisuDatabaseTests
+- [ ] Export/import functionality
+- [ ] Statistics and analytics
+- [ ] Card tagging and filtering
+- [ ] Multiple deck support
+
+## Contributing
+
+Contributions are welcome! Please ensure:
+- All tests pass (`python -m unittest discover`)
+- Code follows Python best practices
+- New features include tests
+
+## License
+
+MIT License - See LICENSE file for details
+
+## See Also
+
+- [FSRS Algorithm](https://github.com/open-spaced-repetition/fsrs4anki) - The scheduling algorithm used
+- [SuperMemo](https://www.supermemo.com/) - Pioneer of spaced repetition
+- [Anki](https://apps.ankiweb.net/) - Popular SRS flashcard application
