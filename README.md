@@ -27,6 +27,26 @@ Or for development:
 pip install -e ".[dev]"
 ```
 
+## Example Databases
+
+Explore pre-built example databases in the [`example/`](example/) directory:
+
+- **`example/fsrs.db`** - Spanish vocabulary learning with FSRS (10 cards, 25 reviews)
+- **`example/ebisu.db`** - Python programming concepts with Ebisu (10 cards, 44 reviews)
+
+```bash
+# View statistics
+python example/view_stats.py
+
+# Regenerate examples
+python example/generate_examples.py
+
+# Explore with SQLite
+sqlite3 example/fsrs.db "SELECT * FROM fsrs_cards;"
+```
+
+See [`example/README.md`](example/README.md) for more details.
+
 ## Quick Start
 
 ```python
