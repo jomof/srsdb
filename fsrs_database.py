@@ -1,6 +1,6 @@
 import sqlite3
 from datetime import datetime
-from typing import Optional, List
+from typing import Optional, List, Tuple
 from srs_database import SrsDatabase
 
 
@@ -104,7 +104,7 @@ class FsrsDatabase(SrsDatabase):
             return 4  # Easy
 
     def _calculate_next_interval(self, difficulty: float, stability: float,
-                                 rating: int, state: int) -> tuple[float, float, int, int]:
+                                 rating: int, state: int) -> Tuple[float, float, int, int]:
         """
         Calculate next review parameters using simplified FSRS algorithm.
 
