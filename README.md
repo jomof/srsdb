@@ -7,12 +7,13 @@ A Python library for managing Spaced Repetition System (SRS) learning data using
 
 ## Features
 
-- 🧠 **SRS Algorithm Support**: Currently implements FSRS (Free Spaced Repetition Scheduler)
+- 🧠 **Multiple SRS Algorithms**: FSRS (deterministic) and Ebisu (Bayesian)
 - 💾 **SQLite Backend**: Persistent storage with flexible schema
 - 📊 **Detailed Tracking**: Monitor difficulty, stability, review history, and more
 - 🔄 **Flexible Correctness**: Rate answers on a 0-100 scale
-- 🧪 **Well Tested**: Comprehensive test suite with 17+ unit tests
+- 🧪 **Well Tested**: Comprehensive test suite with 35+ unit tests
 - 🐍 **Python 3.8+**: Compatible with modern Python versions
+- 🔌 **Optional Dependencies**: Use FsrsDatabase without any dependencies, add Ebisu when needed
 
 ## Installation
 
@@ -193,7 +194,57 @@ study_session(db, start + timedelta(days=10), {
 })
 ```
 
+## Implementation: EbisuDatabase
+
+The `EbisuDatabase` class implements the SrsDatabase interface using the Ebisu Bayesian algorithm, which tracks:
+
+- **Alpha & Beta**: Parameters of the Beta distribution on recall probability
+- **Half-life (t)**: Expected time until recall probability reaches 0.5
+- **Bayesian Updates**: Uses quiz results to update beliefs about memory strength
+- **Review History**: Complete history with recall probabilities
+
+**Note**: Requires the `ebisu` package: `pip install ebisu`
+
+### Example Usage
+
+```python
+from datetime import datetime, timedelta
+from ebisu_database import EbisuDatabase
+
+# Initialize database (requires ebisu package)
+db = EbisuDatabase("learning.db")
+
+# Day 1: Learn new vocabulary
+day1 = datetime(2024, 1, 1, 9, 0, 0)
+
+db.answer(day1, "vocab_apple", 95)       # Nearly perfect
+db.answer(day1, "vocab_banana", 70)      # Pretty good
+db.answer(day1, "vocab_cherry", 40)      # Struggling
+
+# Day 3: Review cards that are due
+day3 = day1 + timedelta(days=3)
+due = db.next(day3)
+print(f"Cards needing review: {due}")
+
+# Cards are ordered by recall probability (lowest first)
+for card in due:
+    db.answer(day3, card, 80)  # Review with 80% correctness
+
+# Check when next review is needed
+next_review = db.next_due_date()
+print(f"Next review: {next_review}")
+```
+
+### Key Differences from FSRS
+
+- **Bayesian**: Uses probabilistic modeling vs deterministic scheduling
+- **Adaptive**: Continuously updates beliefs about memory strength
+- **Flexible**: Supports soft-binary quiz results (0.0-1.0 success values)
+- **Half-life Based**: Schedules reviews based on predicted forgetting curve
+
 ## Database Schema
+
+### FsrsDatabase Tables
 
 The FsrsDatabase creates two tables:
 
@@ -215,6 +266,27 @@ Historical record of all reviews:
 - `rating`: FSRS rating (1-4)
 - `state`: Card state after review
 
+### EbisuDatabase Tables
+
+The EbisuDatabase creates two tables:
+
+### `ebisu_cards`
+Stores the current Bayesian model for each card:
+- `question_key` (PRIMARY KEY): Unique card identifier
+- `alpha`: Alpha parameter of Beta distribution
+- `beta`: Beta parameter of Beta distribution
+- `t`: Half-life in hours
+- `last_review`: Timestamp of last review
+- `total_reviews`: Total number of reviews
+
+### `ebisu_reviews`
+Historical record of all reviews:
+- `id` (PRIMARY KEY): Auto-incrementing review ID
+- `question_key`: Card being reviewed
+- `review_time`: When the review occurred
+- `correctness`: Correctness value (0-100)
+- `recall_probability`: Predicted recall before this review
+
 ## Testing
 
 Run the test suite:
@@ -230,13 +302,11 @@ pytest -v
 ## Implementation Status
 
 - ✅ **SrsDatabase Interface**: Complete
-- ✅ **FsrsDatabase**: Fully implemented with comprehensive tests
-- 🔮 **EbisuDatabase**: Future implementation (planned)
+- ✅ **FsrsDatabase**: Fully implemented with comprehensive tests (17+ tests)
+- ✅ **EbisuDatabase**: Fully implemented with comprehensive tests (18+ tests)
 
 ## Future Enhancements
 
-- [ ] EbisuDatabase implementation
-- [ ] EbisuDatabaseTests
 - [ ] Export/import functionality
 - [ ] Statistics and analytics
 - [ ] Card tagging and filtering
@@ -255,6 +325,8 @@ MIT License - See LICENSE file for details
 
 ## See Also
 
-- [FSRS Algorithm](https://github.com/open-spaced-repetition/fsrs4anki) - The scheduling algorithm used
+- [FSRS Algorithm](https://github.com/open-spaced-repetition/fsrs4anki) - Free Spaced Repetition Scheduler
+- [Ebisu Algorithm](https://fasiha.github.io/ebisu/) - Bayesian spaced repetition algorithm
+- [Ebisu on PyPI](https://pypi.org/project/ebisu/) - Python implementation of Ebisu
 - [SuperMemo](https://www.supermemo.com/) - Pioneer of spaced repetition
 - [Anki](https://apps.ankiweb.net/) - Popular SRS flashcard application
