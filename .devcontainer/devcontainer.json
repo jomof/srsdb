@@ -1,0 +1,14 @@
+{
+  "name": "SRSDB Development Container",
+  "image": "jomof/cloze-dev-data-image:latest",
+
+  "customizations": {
+    "vscode": {
+      "settings": {},
+      "extensions": [
+        "anthropic.claude-code",
+        "qwtel.sqlite-viewer"
+      ]
+    }
+  }
+}
