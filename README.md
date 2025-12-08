@@ -21,13 +21,31 @@ A Python library for managing Spaced Repetition System (SRS) learning data using
 
 ## Installation
 
+### From PyPI (Recommended)
+
+Install the latest stable release from PyPI:
+
 ```bash
-pip install -e .
+# Basic installation (FSRS only, no dependencies)
+pip install srsdb
+
+# With Ebisu support
+pip install srsdb[ebisu]
 ```
 
-Or for development:
+### From Source
+
+For development or to use the latest code:
 
 ```bash
+# Clone the repository
+git clone https://github.com/jomof/srsdb.git
+cd srsdb
+
+# Install in development mode
+pip install -e .
+
+# Or with development tools
 pip install -e ".[dev]"
 ```
 
