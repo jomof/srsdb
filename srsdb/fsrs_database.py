@@ -15,8 +15,8 @@ class FsrsKnobs:
     general-purpose scheduling.
 
     Attributes:
-        w (List[float]): FSRS weight parameters (17 values). These control
-            the difficulty and stability calculations.
+        w (Optional[List[float]]): FSRS weight parameters (17 values). These control
+            the difficulty and stability calculations. If None, uses default values.
         rating_thresholds (Tuple[int, int, int]): Thresholds for converting
             correctness percentage to FSRS ratings (1-4). Format: (hard, good, easy).
             Default: (25, 50, 85) means:
@@ -34,7 +34,7 @@ class FsrsKnobs:
         >>> strict_knobs = FsrsKnobs(rating_thresholds=(30, 60, 90))
         >>> db = FsrsDatabase("strict.db", strict_knobs)
     """
-    w: List[float] = None
+    w: Optional[List[float]] = None
     rating_thresholds: Tuple[int, int, int] = (25, 50, 85)
 
     def __post_init__(self) -> None:
@@ -206,6 +206,7 @@ class FsrsDatabase(SrsDatabase):
         """
         # Use configured FSRS parameters
         w = self.knobs.w
+        assert w is not None  # __post_init__ ensures w is set
 
         # Update difficulty
         new_difficulty = difficulty
