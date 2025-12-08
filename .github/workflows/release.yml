@@ -172,14 +172,39 @@ jobs:
       id: get_version
       run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
 
-    - name: Wait for PyPI
+    - name: Install from PyPI with retry
       run: |
-        echo "Waiting 120 seconds for PyPI to process the release..."
-        sleep 120
+        VERSION="${{ steps.get_version.outputs.VERSION }}"
+        MAX_ATTEMPTS=12
+        ATTEMPT=1
+        WAIT_TIME=30
 
-    - name: Install from PyPI
-      run: |
-        pip install srsdb==${{ steps.get_version.outputs.VERSION }}
+        echo "Attempting to install srsdb==${VERSION} from PyPI..."
+        echo "PyPI may take several minutes to index the new release."
+
+        while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
+          echo ""
+          echo "Attempt $ATTEMPT/$MAX_ATTEMPTS (waiting ${WAIT_TIME}s before trying)..."
+          sleep $WAIT_TIME
+
+          # Clear pip cache and try to install with retries
+          pip cache purge 2>/dev/null || true
+          if pip install --no-cache-dir --retries 3 "srsdb==${VERSION}"; then
+            echo "✅ Successfully installed srsdb==${VERSION}"
+            exit 0
+          fi
+
+          if [ $ATTEMPT -lt $MAX_ATTEMPTS ]; then
+            echo "⚠️  Installation failed. PyPI may still be indexing the release."
+            ATTEMPT=$((ATTEMPT + 1))
+          else
+            echo "❌ Failed to install after $MAX_ATTEMPTS attempts"
+            echo ""
+            echo "Debug: Checking what versions are available on PyPI..."
+            pip index versions srsdb || true
+            exit 1
+          fi
+        done
 
     - name: Verify import
       run: |
