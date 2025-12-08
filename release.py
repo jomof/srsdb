@@ -15,13 +15,13 @@ from pathlib import Path
 
 
 def get_current_version():
-    """Read the current version from __init__.py"""
-    init_file = Path(__file__).parent / "__init__.py"
+    """Read the current version from srsdb/__init__.py"""
+    init_file = Path(__file__).parent / "srsdb" / "__init__.py"
     content = init_file.read_text()
 
     match = re.search(r'__version__\s*=\s*["\']([^"\']+)["\']', content)
     if not match:
-        raise ValueError("Could not find __version__ in __init__.py")
+        raise ValueError("Could not find __version__ in srsdb/__init__.py")
 
     return match.group(1)
 
@@ -159,13 +159,13 @@ def main():
     root = Path(__file__).parent
 
     updated_files = []
-    for file_path in [root / "__init__.py", root / "setup.py", root / "pyproject.toml"]:
+    for file_path in [root / "srsdb" / "__init__.py", root / "setup.py", root / "pyproject.toml"]:
         if file_path.exists():
             if update_version_in_file(file_path, current_version, new_version):
-                print(f"  ✅ Updated {file_path.name}")
-                updated_files.append(file_path.name)
+                print(f"  ✅ Updated {file_path.relative_to(root)}")
+                updated_files.append(str(file_path.relative_to(root)))
             else:
-                print(f"  ⚠️  No changes in {file_path.name}")
+                print(f"  ⚠️  No changes in {file_path.relative_to(root)}")
 
     if not updated_files:
         print("Error: No files were updated")

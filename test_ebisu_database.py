@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 # Check if ebisu is available
 try:
     import ebisu
-    from ebisu_database import EbisuDatabase
+    from srsdb import EbisuDatabase
     EBISU_AVAILABLE = True
 except ImportError:
     EBISU_AVAILABLE = False

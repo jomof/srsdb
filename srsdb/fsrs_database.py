@@ -1,7 +1,7 @@
 import sqlite3
 from datetime import datetime
 from typing import Optional, List, Tuple
-from srs_database import SrsDatabase
+from .srs_database import SrsDatabase
 
 
 class FsrsDatabase(SrsDatabase):

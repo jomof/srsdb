@@ -35,17 +35,17 @@ jobs:
     - name: Verify version consistency
       run: |
         TAG_VERSION="${{ steps.get_version.outputs.VERSION }}"
-        # Extract version from __init__.py using grep
-        INIT_VERSION=$(grep -oP '__version__\s*=\s*"\K[^"]+' __init__.py)
+        # Extract version from srsdb/__init__.py using grep
+        INIT_VERSION=$(grep -oP '__version__\s*=\s*"\K[^"]+' srsdb/__init__.py)
         # Extract version from pyproject.toml using grep
         PYPROJECT_VERSION=$(grep -oP '^version\s*=\s*"\K[^"]+' pyproject.toml)
 
         echo "Tag version: $TAG_VERSION"
-        echo "__init__.py version: $INIT_VERSION"
+        echo "srsdb/__init__.py version: $INIT_VERSION"
         echo "pyproject.toml version: $PYPROJECT_VERSION"
 
         if [ "$TAG_VERSION" != "$INIT_VERSION" ]; then
-          echo "Error: Version mismatch between tag ($TAG_VERSION) and __init__.py ($INIT_VERSION)"
+          echo "Error: Version mismatch between tag ($TAG_VERSION) and srsdb/__init__.py ($INIT_VERSION)"
           exit 1
         fi
 

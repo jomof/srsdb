@@ -11,8 +11,7 @@ from datetime import datetime, timedelta
 # Add parent directory to path to import our modules
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from fsrs_database import FsrsDatabase
-from ebisu_database import EbisuDatabase
+from srsdb import FsrsDatabase, EbisuDatabase
 
 
 def generate_fsrs_example():

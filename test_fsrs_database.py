@@ -2,7 +2,7 @@ import unittest
 import os
 import tempfile
 from datetime import datetime, timedelta
-from fsrs_database import FsrsDatabase
+from srsdb import FsrsDatabase
 
 
 class FsrsDatabaseTests(unittest.TestCase):

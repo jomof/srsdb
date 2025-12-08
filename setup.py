@@ -17,11 +17,7 @@ setup(
         "Source": "https://github.com/jomof/srsdb",
         "Documentation": "https://github.com/jomof/srsdb#readme",
     },
-    py_modules=[
-        "srs_database",
-        "fsrs_database",
-        "ebisu_database",
-    ],
+    packages=find_packages(),
     classifiers=[
         "Development Status :: 4 - Beta",
         "Intended Audience :: Developers",
