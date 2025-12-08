@@ -345,37 +345,58 @@ class EbisuDatabase(SrsDatabase):
 
         return [card[0] for card in due_cards]
 
-    def next_due_date(self) -> Optional[datetime]:
+    def next_due_date(self, question: Optional[str] = None) -> Optional[datetime]:
         """
         Returns the date/time of the next moment that a question is due.
 
-        For Ebisu, this is the earliest time when any card's recall probability
-        drops below the configured threshold.
+        For Ebisu, this is the time when a card's recall probability
+        drops to the half-life point (based on the 't' parameter in the model).
+
+        Args:
+            question (Optional[str]): If provided, returns the next due date for
+                this specific question. If None, returns the earliest due date
+                across all questions.
 
         Returns:
-            Optional[datetime]: The next due date, or None if no questions are scheduled.
+            Optional[datetime]: The next due date, or None if no questions are
+                scheduled (or if the specified question hasn't been recorded yet).
+
+        Note:
+            This method can be used to check if a question/card exists in the database.
+            If a specific question is provided and the return value is None, the
+            question has not been recorded yet. If a datetime is returned, the
+            question exists in the database.
 
         Example:
+            >>> # Get the next due date across all cards
             >>> next_review = db.next_due_date()
             >>> if next_review:
             ...     print(f"Next review at: {next_review}")
+            >>>
+            >>> # Get the due date for a specific card
+            >>> card_due = db.next_due_date(question="python_lists")
+            >>> if card_due:
+            ...     print(f"'python_lists' is due at: {card_due}")
+            ... else:
+            ...     print("'python_lists' hasn't been recorded yet")
         """
         self._open()
         assert self._conn is not None  # _open() ensures connection exists
 
         cursor = self._conn.cursor()
-        cursor.execute("""
-            SELECT question_key, alpha, beta, t, last_review
-            FROM ebisu_cards
-        """)
 
-        rows = cursor.fetchall()
-        if not rows:
-            return None
+        if question is not None:
+            # Get due date for specific question
+            cursor.execute("""
+                SELECT alpha, beta, t, last_review
+                FROM ebisu_cards
+                WHERE question_key = ?
+            """, (question,))
 
-        earliest_due = None
+            row = cursor.fetchone()
+            if not row:
+                return None
 
-        for row in rows:
             model = (row['alpha'], row['beta'], row['t'])
             last_review_str = row['last_review']
 
@@ -390,10 +411,39 @@ class EbisuDatabase(SrsDatabase):
             alpha, beta, t = model
             due_time = last_review + timedelta(hours=t)
 
-            if earliest_due is None or due_time < earliest_due:
-                earliest_due = due_time
+            return due_time
+        else:
+            # Get earliest due date across all questions
+            cursor.execute("""
+                SELECT question_key, alpha, beta, t, last_review
+                FROM ebisu_cards
+            """)
 
-        return earliest_due
+            rows = cursor.fetchall()
+            if not rows:
+                return None
+
+            earliest_due = None
+
+            for row in rows:
+                model = (row['alpha'], row['beta'], row['t'])
+                last_review_str = row['last_review']
+
+                if not last_review_str:
+                    # New card, due now
+                    return datetime.now()
+
+                last_review = datetime.fromisoformat(last_review_str)
+
+                # Calculate when recall probability will drop to 0.5
+                # At time t (half-life), recall is approximately 0.5
+                alpha, beta, t = model
+                due_time = last_review + timedelta(hours=t)
+
+                if earliest_due is None or due_time < earliest_due:
+                    earliest_due = due_time
+
+            return earliest_due
 
     def __del__(self) -> None:
         """Cleanup: close database connection when object is destroyed."""

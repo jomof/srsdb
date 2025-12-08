@@ -108,22 +108,46 @@ class SrsDatabase(ABC):
         pass
 
     @abstractmethod
-    def next_due_date(self) -> Optional[datetime]:
+    def next_due_date(self, question: Optional[str] = None) -> Optional[datetime]:
         """
         Returns the date/time of the next moment that a question is due.
 
         This is useful for scheduling notifications or knowing when the user
         should next review their cards.
 
+        Args:
+            question (Optional[str]): If provided, returns the next due date for
+                this specific question. If None, returns the earliest due date
+                across all questions.
+
         Returns:
-            Optional[datetime]: The next due date, or None if no questions are scheduled.
+            Optional[datetime]: The next due date, or None if no questions are
+                scheduled (or if the specified question hasn't been recorded yet).
+
+        Note:
+            This method can be used to check if a question/card exists in the database.
+            If a specific question is provided and the return value is None, the
+            question has not been recorded yet. If a datetime is returned, the
+            question exists in the database.
 
         Example:
+            >>> # Get the next due date across all cards
             >>> next_review = db.next_due_date()
             >>> if next_review:
             ...     print(f"Next review at: {next_review}")
             ... else:
             ...     print("No cards scheduled")
             Next review at: 2024-01-15 10:30:00
+            >>>
+            >>> # Get the due date for a specific card
+            >>> card_due = db.next_due_date(question="vocab_hello")
+            >>> if card_due:
+            ...     print(f"'vocab_hello' is due at: {card_due}")
+            ... else:
+            ...     print("'vocab_hello' hasn't been recorded yet")
+            >>>
+            >>> # Check if a card exists in the database
+            >>> if db.next_due_date(question="new_card") is None:
+            ...     print("Card doesn't exist yet")
         """
         pass
