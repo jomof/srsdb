@@ -11,8 +11,10 @@ This document describes how to create a new release of srsdb.
 ## Release Workflow
 
 The release process uses:
-- `release.py` - Python script that bumps the version and creates a git tag
+- `release.py` - Python script that bumps the version, creates a git tag, and pushes to GitHub
 - `.github/workflows/release.yml` - GitHub Actions workflow that publishes to PyPI when a tag is pushed
+
+**The entire process is automatic** - just run `python release.py` and it handles everything!
 
 ### Step 1: Prepare the Release
 
@@ -26,9 +28,9 @@ python -m unittest discover -v
 git status
 ```
 
-### Step 2: Bump Version and Create Tag
+### Step 2: Run Release Script
 
-Use the `release.py` script to bump the version:
+Use the `release.py` script to bump the version and trigger the release:
 
 ```bash
 # Bump minor version (0.1.0 -> 0.2.0) - default
@@ -41,31 +43,19 @@ python release.py major
 python release.py patch
 ```
 
-The script will:
-1. Read the current version from `__init__.py`
-2. Calculate the new version
-3. Ask for confirmation
-4. Update version in `__init__.py` and `setup.py`
-5. Commit the version bump
-6. Create a git tag (e.g., `v0.2.0`)
-7. Display next steps
+The script will automatically:
+1. ✅ Read the current version from `__init__.py`
+2. ✅ Calculate the new version
+3. ✅ Ask for confirmation
+4. ✅ Update version in `__init__.py` and `setup.py`
+5. ✅ Commit the version bump
+6. ✅ Create a git tag (e.g., `v0.2.0`)
+7. ✅ **Push commit to GitHub**
+8. ✅ **Push tag to GitHub (triggers release workflow)**
 
-### Step 3: Push Changes
+That's it! The script handles everything automatically.
 
-Push the commit and tag to GitHub:
-
-```bash
-# Push the commit
-git push origin main
-
-# Push the tag (this triggers the release workflow)
-git push origin v0.2.0
-
-# Or push both at once
-git push origin main && git push origin v0.2.0
-```
-
-### Step 4: GitHub Actions Workflow
+### Step 3: GitHub Actions Workflow
 
 When you push a tag, the `.github/workflows/release.yml` workflow automatically:
 
@@ -88,9 +78,9 @@ When you push a tag, the `.github/workflows/release.yml` workflow automatically:
    - Verifies imports work
    - Tests optional Ebisu dependency
 
-### Step 5: Verify the Release
+### Step 4: Verify the Release
 
-After the workflow completes:
+After the workflow completes (usually 2-5 minutes):
 
 1. **Check PyPI**: Visit https://pypi.org/project/srsdb/
 2. **Check GitHub Release**: Visit https://github.com/jomof/srsdb/releases

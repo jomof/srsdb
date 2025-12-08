@@ -175,19 +175,52 @@ def main():
     print("\n🏷️  Creating git tag...")
     tag_name = create_tag(new_version)
 
-    # Instructions
+    # Push changes
+    print("\n🚀 Pushing to GitHub...")
+
+    # Get current branch
+    result = run_command("git branch --show-current", check=False)
+    current_branch = result.stdout.strip() or "main"
+
+    # Push commit
+    print(f"  Pushing commit to {current_branch}...")
+    result = run_command(f"git push origin {current_branch}", check=False)
+    if result.returncode != 0:
+        print(f"  ⚠️  Warning: Failed to push commit")
+        print(f"  {result.stderr}")
+        print("\n  You may need to push manually:")
+        print(f"    git push origin {current_branch}")
+        print(f"    git push origin {tag_name}")
+        sys.exit(1)
+    print(f"  ✅ Pushed commit to {current_branch}")
+
+    # Push tag (this triggers the release workflow)
+    print(f"  Pushing tag {tag_name}...")
+    result = run_command(f"git push origin {tag_name}", check=False)
+    if result.returncode != 0:
+        print(f"  ⚠️  Warning: Failed to push tag")
+        print(f"  {result.stderr}")
+        print("\n  You may need to push the tag manually:")
+        print(f"    git push origin {tag_name}")
+        sys.exit(1)
+    print(f"  ✅ Pushed tag {tag_name}")
+
+    # Success
     print("\n" + "=" * 60)
-    print("✨ Release preparation complete!")
+    print("✨ Release triggered successfully!")
     print("=" * 60)
-    print(f"\nVersion bumped: {current_version} → {new_version}")
-    print(f"Tag created: {tag_name}")
-    print("\nNext steps:")
-    print(f"  1. Review the changes: git show")
-    print(f"  2. Push the commit: git push origin main")
-    print(f"  3. Push the tag: git push origin {tag_name}")
-    print(f"\nPushing the tag will trigger the release workflow to publish to PyPI.")
-    print("\nTo push both at once:")
-    print(f"  git push origin main && git push origin {tag_name}")
+    print(f"\nVersion released: {current_version} → {new_version}")
+    print(f"Tag pushed: {tag_name}")
+    print("\n🎯 GitHub Actions workflow triggered!")
+    print("\nThe release workflow will now:")
+    print("  1. Build the package")
+    print("  2. Publish to PyPI")
+    print("  3. Create GitHub release")
+    print("  4. Verify installation")
+    print("\nMonitor progress at:")
+    print(f"  https://github.com/jomof/srsdb/actions")
+    print(f"\nOnce complete, the package will be available at:")
+    print(f"  https://pypi.org/project/srsdb/{new_version}/")
     print()
 
 
