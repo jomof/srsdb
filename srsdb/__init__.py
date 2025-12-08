@@ -15,4 +15,4 @@ except ImportError:
     # ebisu package not installed
     __all__ = ["SrsDatabase", "FsrsDatabase", "FsrsKnobs"]
 
-__version__ = "0.12.0"
+__version__ = "0.13.0"
