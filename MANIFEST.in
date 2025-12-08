@@ -3,6 +3,9 @@ include LICENSE
 include requirements.txt
 include pyproject.toml
 
+# Include type information for PEP 561
+recursive-include srsdb py.typed
+
 # Exclude test files
 exclude test_*.py
 exclude example.py

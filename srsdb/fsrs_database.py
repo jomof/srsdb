@@ -9,15 +9,41 @@ class FsrsDatabase(SrsDatabase):
     Implementation of SrsDatabase using the FSRS (Free Spaced Repetition Scheduler) algorithm.
 
     FSRS uses a sophisticated algorithm that tracks difficulty, stability, and retrievability
-    of cards to optimize review scheduling.
+    of cards to optimize review scheduling. It's a modern, deterministic SRS algorithm that
+    provides predictable scheduling based on card difficulty and stability.
+
+    The database maintains two tables:
+        - fsrs_cards: Current state of each card (difficulty, stability, due date, etc.)
+        - fsrs_reviews: Historical record of all reviews
+
+    Attributes:
+        database_file (str): Path to the SQLite database file.
+
+    Example:
+        >>> from srsdb import FsrsDatabase
+        >>> from datetime import datetime, timedelta
+        >>> db = FsrsDatabase("flashcards.db")
+        >>> now = datetime.now()
+        >>> # Learn some cards
+        >>> db.answer(now, "vocab_hello", 90)
+        >>> db.answer(now, "vocab_goodbye", 60)
+        >>> # Check what's due tomorrow
+        >>> tomorrow = now + timedelta(days=1)
+        >>> due = db.next(tomorrow)
+        >>> print(due)
+        ['vocab_goodbye']
     """
 
-    def __init__(self, database_file: str):
+    def __init__(self, database_file: str) -> None:
         """
         Initialize the FSRS database with a file path.
 
         Args:
-            database_file: Path to the SQLite database file
+            database_file (str): Path to the SQLite database file. Will be created
+                if it doesn't exist.
+
+        Example:
+            >>> db = FsrsDatabase("my_flashcards.db")
         """
         super().__init__(database_file)
         self._conn: Optional[sqlite3.Connection] = None
@@ -89,10 +115,16 @@ class FsrsDatabase(SrsDatabase):
         4 = Easy
 
         Args:
-            correct: Correctness percentage from 0-100
+            correct (int): Correctness percentage from 0-100.
 
         Returns:
-            FSRS rating from 1-4
+            int: FSRS rating from 1-4.
+
+        Example:
+            >>> db._convert_correctness_to_rating(10)
+            1
+            >>> db._convert_correctness_to_rating(90)
+            4
         """
         if correct < 25:
             return 1  # Again
@@ -109,13 +141,17 @@ class FsrsDatabase(SrsDatabase):
         Calculate next review parameters using simplified FSRS algorithm.
 
         Args:
-            difficulty: Current difficulty (0-10)
-            stability: Current stability in days
-            rating: Review rating (1-4)
-            state: Current card state (0=new, 1=learning, 2=review, 3=relearning)
+            difficulty (float): Current difficulty (0-10).
+            stability (float): Current stability in days.
+            rating (int): Review rating (1-4).
+            state (int): Current card state (0=new, 1=learning, 2=review, 3=relearning).
 
         Returns:
-            Tuple of (new_difficulty, new_stability, new_state, scheduled_days)
+            Tuple[float, float, int, int]: A tuple containing:
+                - new_difficulty (float): Updated difficulty value
+                - new_stability (float): Updated stability in days
+                - new_state (int): New card state
+                - scheduled_days (int): Days until next review
         """
         # Simplified FSRS parameters
         w = [0.4, 0.6, 2.4, 5.8, 4.93, 0.94, 0.86, 0.01, 1.49, 0.14, 0.94, 2.18, 0.05, 0.34, 1.26, 0.29, 2.61]
@@ -168,11 +204,19 @@ class FsrsDatabase(SrsDatabase):
         Records the result of the user answering a question using FSRS algorithm.
 
         Args:
-            now: The time that the question was answered
-            question_key: Unique identifier for the question
-            correct: Value from 0-100 indicating correctness
+            now (datetime): The time that the question was answered.
+            question_key (str): Unique identifier for the question.
+            correct (int): Value from 0-100 indicating correctness.
+
+        Raises:
+            ValueError: If correct is not between 0 and 100.
+
+        Example:
+            >>> from datetime import datetime
+            >>> db.answer(datetime.now(), "spanish_hello", 85)
         """
         self._open()
+        assert self._conn is not None  # _open() ensures connection exists
 
         if not 0 <= correct <= 100:
             raise ValueError(f"correct must be between 0 and 100, got {correct}")
@@ -246,12 +290,23 @@ class FsrsDatabase(SrsDatabase):
         Returns the questions that are due as of 'now', ordered by due date.
 
         Args:
-            now: The current time to check against
+            now (datetime): The current time to check against.
 
         Returns:
-            List of question keys in chronological order of due date
+            List[str]: List of question keys in chronological order of due date.
+                Returns empty list if no questions are due.
+
+        Example:
+            >>> from datetime import datetime, timedelta
+            >>> now = datetime.now()
+            >>> db.answer(now, "card1", 50)
+            >>> tomorrow = now + timedelta(days=1)
+            >>> due = db.next(tomorrow)
+            >>> print(due)
+            ['card1']
         """
         self._open()
+        assert self._conn is not None  # _open() ensures connection exists
 
         cursor = self._conn.cursor()
         cursor.execute("""
@@ -268,9 +323,15 @@ class FsrsDatabase(SrsDatabase):
         Returns the date/time of the next moment that a question is due.
 
         Returns:
-            The next due date, or None if no questions are scheduled
+            Optional[datetime]: The next due date, or None if no questions are scheduled.
+
+        Example:
+            >>> next_review = db.next_due_date()
+            >>> if next_review:
+            ...     print(f"Next review: {next_review}")
         """
         self._open()
+        assert self._conn is not None  # _open() ensures connection exists
 
         cursor = self._conn.cursor()
         cursor.execute("""
@@ -283,6 +344,6 @@ class FsrsDatabase(SrsDatabase):
             return datetime.fromisoformat(row['next_due'])
         return None
 
-    def __del__(self):
+    def __del__(self) -> None:
         """Cleanup: close database connection when object is destroyed."""
         self._close()

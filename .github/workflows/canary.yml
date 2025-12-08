@@ -90,8 +90,11 @@ jobs:
 
     - name: Type check with mypy
       run: |
-        mypy --ignore-missing-imports --no-strict-optional *.py
-      continue-on-error: true
+        # Check the main package
+        mypy srsdb/ --ignore-missing-imports
+        # Check test files (informational only)
+        mypy test_*.py --ignore-missing-imports || echo "Test files have type issues (non-blocking)"
+      continue-on-error: false
 
   build:
     name: Build Package

@@ -44,6 +44,7 @@ setup(
         "dev": [
             "pytest>=7.0.0",
             "pytest-cov>=4.0.0",
+            "mypy>=1.0.0",
             "ebisu>=2.0.0",
         ],
     },

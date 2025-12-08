@@ -16,20 +16,44 @@ class EbisuDatabase(SrsDatabase):
 
     Ebisu uses Bayesian statistics with Beta distributions and exponential forgetting
     curves to intelligently schedule reviews. It tracks a probability distribution
-    on the half-life of each fact.
+    on the half-life of each fact, providing adaptive scheduling based on probabilistic
+    modeling of memory.
 
-    Note: Requires the 'ebisu' package to be installed: pip install ebisu
+    The database maintains two tables:
+        - ebisu_cards: Current Bayesian model for each card (alpha, beta, t, etc.)
+        - ebisu_reviews: Historical record with recall probabilities
+
+    Attributes:
+        database_file (str): Path to the SQLite database file.
+
+    Note:
+        Requires the 'ebisu' package to be installed: pip install ebisu
+
+    Example:
+        >>> from srsdb import EbisuDatabase
+        >>> from datetime import datetime, timedelta
+        >>> db = EbisuDatabase("learning.db")
+        >>> now = datetime.now()
+        >>> # Learn some cards
+        >>> db.answer(now, "python_lists", 95)
+        >>> db.answer(now, "python_dicts", 70)
+        >>> # Check what's due in 3 days
+        >>> later = now + timedelta(days=3)
+        >>> due = db.next(later)
     """
 
-    def __init__(self, database_file: str):
+    def __init__(self, database_file: str) -> None:
         """
         Initialize the Ebisu database with a file path.
 
         Args:
-            database_file: Path to the SQLite database file
+            database_file (str): Path to the SQLite database file.
 
         Raises:
-            ImportError: If the ebisu package is not installed
+            ImportError: If the ebisu package is not installed.
+
+        Example:
+            >>> db = EbisuDatabase("my_learning.db")
         """
         if not EBISU_AVAILABLE:
             raise ImportError(
@@ -98,10 +122,16 @@ class EbisuDatabase(SrsDatabase):
         Ebisu supports soft-binary quizzes where success can be a float between 0 and 1.
 
         Args:
-            correct: Correctness percentage from 0-100
+            correct (int): Correctness percentage from 0-100.
 
         Returns:
-            Success value from 0.0 to 1.0
+            float: Success value from 0.0 to 1.0.
+
+        Example:
+            >>> db._convert_correctness_to_success(50)
+            0.5
+            >>> db._convert_correctness_to_success(100)
+            1.0
         """
         return correct / 100.0
 
@@ -110,11 +140,11 @@ class EbisuDatabase(SrsDatabase):
         Calculate time elapsed since last review in hours.
 
         Args:
-            now: Current time
-            last_review: Time of last review, or None for new cards
+            now (datetime): Current time.
+            last_review (Optional[datetime]): Time of last review, or None for new cards.
 
         Returns:
-            Time elapsed in hours
+            float: Time elapsed in hours (minimum 0.1 to avoid division by zero).
         """
         if last_review is None:
             # For new cards, use a small epsilon to avoid division by zero
@@ -130,12 +160,12 @@ class EbisuDatabase(SrsDatabase):
         Calculate when a card should next be reviewed.
 
         Args:
-            model: Ebisu model tuple (alpha, beta, t)
-            now: Current time
-            target_recall: Target recall probability (default 0.5)
+            model (Tuple[float, float, float]): Ebisu model tuple (alpha, beta, t).
+            now (datetime): Current time.
+            target_recall (float): Target recall probability (default 0.5).
 
         Returns:
-            The datetime when the card should be reviewed
+            datetime: The datetime when the card should be reviewed.
         """
         # The 't' in the model represents the half-life in hours
         # We schedule the next review at the half-life point
@@ -149,11 +179,19 @@ class EbisuDatabase(SrsDatabase):
         Records the result of the user answering a question using Ebisu algorithm.
 
         Args:
-            now: The time that the question was answered
-            question_key: Unique identifier for the question
-            correct: Value from 0-100 indicating correctness
+            now (datetime): The time that the question was answered.
+            question_key (str): Unique identifier for the question.
+            correct (int): Value from 0-100 indicating correctness.
+
+        Raises:
+            ValueError: If correct is not between 0 and 100.
+
+        Example:
+            >>> from datetime import datetime
+            >>> db.answer(datetime.now(), "python_classes", 75)
         """
         self._open()
+        assert self._conn is not None  # _open() ensures connection exists
 
         if not 0 <= correct <= 100:
             raise ValueError(f"correct must be between 0 and 100, got {correct}")
@@ -216,13 +254,25 @@ class EbisuDatabase(SrsDatabase):
         """
         Returns the questions that are due as of 'now', ordered by recall probability.
 
+        Cards with recall probability below 0.5 are considered due. Results are
+        sorted with the lowest recall probability first (most forgotten cards).
+
         Args:
-            now: The current time to check against
+            now (datetime): The current time to check against.
 
         Returns:
-            List of question keys ordered by recall probability (lowest first)
+            List[str]: List of question keys ordered by recall probability (lowest first).
+                Returns empty list if no questions are due.
+
+        Example:
+            >>> from datetime import datetime, timedelta
+            >>> now = datetime.now()
+            >>> db.answer(now, "card1", 60)
+            >>> later = now + timedelta(days=5)
+            >>> due = db.next(later)
         """
         self._open()
+        assert self._conn is not None  # _open() ensures connection exists
 
         cursor = self._conn.cursor()
         cursor.execute("""
@@ -257,12 +307,18 @@ class EbisuDatabase(SrsDatabase):
         Returns the date/time of the next moment that a question is due.
 
         For Ebisu, this is the earliest time when any card's recall probability
-        drops below 0.5.
+        drops below 0.5 (the half-life point).
 
         Returns:
-            The next due date, or None if no questions are scheduled
+            Optional[datetime]: The next due date, or None if no questions are scheduled.
+
+        Example:
+            >>> next_review = db.next_due_date()
+            >>> if next_review:
+            ...     print(f"Next review at: {next_review}")
         """
         self._open()
+        assert self._conn is not None  # _open() ensures connection exists
 
         cursor = self._conn.cursor()
         cursor.execute("""
@@ -296,6 +352,6 @@ class EbisuDatabase(SrsDatabase):
 
         return earliest_due
 
-    def __del__(self):
+    def __del__(self) -> None:
         """Cleanup: close database connection when object is destroyed."""
         self._close()
