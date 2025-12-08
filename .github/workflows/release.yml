@@ -174,8 +174,8 @@ jobs:
 
     - name: Wait for PyPI
       run: |
-        echo "Waiting 60 seconds for PyPI to process the release..."
-        sleep 60
+        echo "Waiting 120 seconds for PyPI to process the release..."
+        sleep 120
 
     - name: Install from PyPI
       run: |
