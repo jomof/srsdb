@@ -1,7 +1,11 @@
 # srsdb
 
 [![Canary Build and Test](https://github.com/jomof/srsdb/actions/workflows/canary.yml/badge.svg)](https://github.com/jomof/srsdb/actions/workflows/canary.yml)
+[![Release to PyPI](https://github.com/jomof/srsdb/actions/workflows/release.yml/badge.svg)](https://github.com/jomof/srsdb/actions/workflows/release.yml)
+[![PyPI version](https://img.shields.io/pypi/v/srsdb.svg)](https://pypi.org/project/srsdb/)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![Type Checked with mypy](https://img.shields.io/badge/type_checked-mypy-blue.svg)](http://mypy-lang.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 A Python library for managing Spaced Repetition System (SRS) learning data using SQLite. Track the state of individual learning items with sophisticated scheduling algorithms.
 
