@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="srsdb",
-    version="0.11.0",
+    version="0.12.0",
     author="jomof",
     author_email="",
     description="SQLite database for tracking SRS learning state with FSRS and Ebisu algorithms",
