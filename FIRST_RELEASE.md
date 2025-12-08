@@ -84,6 +84,41 @@ If you get this error, double-check:
 
 See the full troubleshooting guide in [RELEASING.md](RELEASING.md#troubleshooting)
 
+## After Configuring Trusted Publishing
+
+Once you've added the pending publisher on PyPI, you need to trigger a release.
+
+**IMPORTANT**: The version in `pyproject.toml` has been updated to 0.6.0 to match the other files. The previous mismatch (pyproject.toml had 0.1.0 while setup.py had 0.6.0) caused PyPI to publish version 0.1.0 instead of 0.6.0.
+
+### Option 1: Re-trigger v0.6.0 (recommended)
+
+Since pyproject.toml is now fixed, you can re-trigger the v0.6.0 release:
+
+```bash
+# Commit the pyproject.toml fix and re-create the tag
+git add pyproject.toml release.py .github/workflows/release.yml
+git commit -m "Fix: Update pyproject.toml version and improve version verification"
+git tag -d v0.6.0
+git push origin :refs/tags/v0.6.0
+git tag -a v0.6.0 -m "Release version 0.6.0"
+git push origin main
+git push origin v0.6.0
+```
+
+### Option 2: Create a new release
+
+If you prefer to create a fresh release:
+
+```bash
+# First commit the fixes
+git add pyproject.toml release.py .github/workflows/release.yml
+git commit -m "Fix: Update pyproject.toml version and improve version verification"
+git push origin main
+
+# Then create a new release
+python release.py patch  # Creates v0.6.1
+```
+
 ## After First Release
 
 Once the first release succeeds:

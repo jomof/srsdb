@@ -67,6 +67,12 @@ def update_version_in_file(file_path, old_version, new_version):
         pattern = r'(version\s*=\s*["\'])' + re.escape(old_version) + r'(["\'])'
         replacement = r'\g<1>' + new_version + r'\g<2>'
         new_content = re.sub(pattern, replacement, content)
+
+    # Update version in pyproject.toml
+    elif file_path.name == 'pyproject.toml':
+        pattern = r'(version\s*=\s*["\'])' + re.escape(old_version) + r'(["\'])'
+        replacement = r'\g<1>' + new_version + r'\g<2>'
+        new_content = re.sub(pattern, replacement, content)
     else:
         return False
 
@@ -153,7 +159,7 @@ def main():
     root = Path(__file__).parent
 
     updated_files = []
-    for file_path in [root / "__init__.py", root / "setup.py"]:
+    for file_path in [root / "__init__.py", root / "setup.py", root / "pyproject.toml"]:
         if file_path.exists():
             if update_version_in_file(file_path, current_version, new_version):
                 print(f"  ✅ Updated {file_path.name}")
