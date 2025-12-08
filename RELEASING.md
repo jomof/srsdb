@@ -5,8 +5,32 @@ This document describes how to create a new release of srsdb.
 ## Prerequisites
 
 1. **PyPI Account**: You need a PyPI account with maintainer access to the srsdb package
-2. **GitHub Permissions**: You need push access to the repository and ability to create tags
-3. **Clean Working Directory**: All changes must be committed before creating a release
+2. **PyPI Trusted Publishing**: Must be configured (see setup instructions below)
+3. **GitHub Permissions**: You need push access to the repository and ability to create tags
+4. **Clean Working Directory**: All changes must be committed before creating a release
+
+## ⚠️ FIRST-TIME SETUP: PyPI Trusted Publishing
+
+**IMPORTANT**: Before your first release, you must configure PyPI Trusted Publishing. This is a one-time setup.
+
+### Step-by-Step Setup
+
+1. **Go to PyPI**: Visit https://pypi.org/manage/account/publishing/
+
+2. **Add a new pending publisher** with these exact settings:
+   - **PyPI Project Name**: `srsdb`
+   - **Owner**: `jomof`
+   - **Repository name**: `srsdb`
+   - **Workflow name**: `release.yml`
+   - **Environment name**: `pypi`
+
+3. **Save** - The publisher will be in "pending" state until the first successful publish
+
+4. **Done!** - Now you can run releases
+
+### Why This is Required
+
+This setup allows GitHub Actions to publish to PyPI without storing API tokens. It's more secure and is the recommended approach for modern Python packages.
 
 ## Release Workflow
 
@@ -98,19 +122,16 @@ pip install srsdb[ebisu]
 python -c "from srsdb import EbisuDatabase; print('Success!')"
 ```
 
-## PyPI Trusted Publishing Setup
+## Notes on Trusted Publishing
 
-The release workflow uses PyPI's Trusted Publishing (OIDC) which requires one-time setup:
+The release workflow uses PyPI's Trusted Publishing (OIDC), which you configured in the first-time setup above. This is more secure than using API tokens because:
 
-1. Go to https://pypi.org/manage/account/publishing/
-2. Add a new trusted publisher with:
-   - **PyPI Project Name**: `srsdb`
-   - **Owner**: `jomof`
-   - **Repository name**: `srsdb`
-   - **Workflow name**: `release.yml`
-   - **Environment name**: `pypi` (optional but recommended)
+- No secrets are stored in GitHub
+- GitHub cryptographically proves the workflow's identity to PyPI
+- Permissions are scoped to specific workflows
+- Automatically rotates credentials
 
-This allows GitHub Actions to publish without needing a PyPI token.
+If you need to modify the trusted publisher settings later, visit https://pypi.org/manage/project/srsdb/settings/publishing/
 
 ## Troubleshooting
 
