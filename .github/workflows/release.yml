@@ -35,7 +35,8 @@ jobs:
     - name: Verify version consistency
       run: |
         TAG_VERSION="${{ steps.get_version.outputs.VERSION }}"
-        PKG_VERSION=$(python -c "import re; content=open('__init__.py').read(); print(re.search(r'__version__\s*=\s*[\"\\']([^\"\\'']+)[\"\\']', content).group(1))")
+        # Extract version from __init__.py using grep
+        PKG_VERSION=$(grep -oP '__version__\s*=\s*"\K[^"]+' __init__.py)
         echo "Tag version: $TAG_VERSION"
         echo "Package version: $PKG_VERSION"
         if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
