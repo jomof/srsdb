@@ -1,4 +1,5 @@
 import sqlite3
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Optional, List, Tuple
 from .srs_database import SrsDatabase
@@ -8,6 +9,40 @@ try:
     EBISU_AVAILABLE = True
 except ImportError:
     EBISU_AVAILABLE = False
+
+
+@dataclass
+class EbisuKnobs:
+    """
+    Configuration parameters for the Ebisu algorithm.
+
+    These parameters control the behavior of the Ebisu Bayesian scheduling algorithm.
+    The default values provide good general-purpose scheduling.
+
+    Attributes:
+        default_half_life_hours (float): Initial half-life in hours for new cards.
+            Default: 24.0 (1 day)
+        recall_threshold (float): Recall probability threshold for considering cards due.
+            Default: 0.5 (cards with < 50% recall probability are due)
+        target_recall (float): Target recall probability for scheduling.
+            Default: 0.5 (schedule next review at the half-life point)
+
+    Example:
+        >>> # Use default parameters
+        >>> knobs = EbisuKnobs()
+        >>> db = EbisuDatabase("my.db", knobs)
+        >>>
+        >>> # Customize for faster reviews (shorter initial half-life)
+        >>> fast_knobs = EbisuKnobs(default_half_life_hours=12.0)
+        >>> db = EbisuDatabase("fast.db", fast_knobs)
+        >>>
+        >>> # More conservative (higher recall threshold)
+        >>> strict_knobs = EbisuKnobs(recall_threshold=0.7)
+        >>> db = EbisuDatabase("strict.db", strict_knobs)
+    """
+    default_half_life_hours: float = 24.0
+    recall_threshold: float = 0.5
+    target_recall: float = 0.5
 
 
 class EbisuDatabase(SrsDatabase):
@@ -42,18 +77,25 @@ class EbisuDatabase(SrsDatabase):
         >>> due = db.next(later)
     """
 
-    def __init__(self, database_file: str) -> None:
+    def __init__(self, database_file: str, knobs: Optional[EbisuKnobs] = None) -> None:
         """
-        Initialize the Ebisu database with a file path.
+        Initialize the Ebisu database with a file path and optional configuration.
 
         Args:
             database_file (str): Path to the SQLite database file.
+            knobs (Optional[EbisuKnobs]): Configuration parameters for the Ebisu algorithm.
+                If None, uses default parameters.
 
         Raises:
             ImportError: If the ebisu package is not installed.
 
         Example:
+            >>> # Use default parameters
             >>> db = EbisuDatabase("my_learning.db")
+            >>>
+            >>> # Customize parameters
+            >>> custom_knobs = EbisuKnobs(default_half_life_hours=12.0)
+            >>> db = EbisuDatabase("fast.db", custom_knobs)
         """
         if not EBISU_AVAILABLE:
             raise ImportError(
@@ -64,6 +106,7 @@ class EbisuDatabase(SrsDatabase):
         super().__init__(database_file)
         self._conn: Optional[sqlite3.Connection] = None
         self._is_open = False
+        self.knobs = knobs if knobs is not None else EbisuKnobs()
 
     def _open(self) -> None:
         """
@@ -220,8 +263,8 @@ class EbisuDatabase(SrsDatabase):
             # Calculate current recall probability before update
             recall_prob = ebisu.predictRecall(prior, tnow, exact=True)
         else:
-            # New card - use default model with 24-hour initial half-life
-            prior = ebisu.defaultModel(24.0)  # 24 hours
+            # New card - use configured initial half-life
+            prior = ebisu.defaultModel(self.knobs.default_half_life_hours)
             tnow = 0.1  # Small initial time
             total_reviews = 0
             recall_prob = 1.0
@@ -254,8 +297,8 @@ class EbisuDatabase(SrsDatabase):
         """
         Returns the questions that are due as of 'now', ordered by recall probability.
 
-        Cards with recall probability below 0.5 are considered due. Results are
-        sorted with the lowest recall probability first (most forgotten cards).
+        Cards with recall probability below the configured threshold are considered due.
+        Results are sorted with the lowest recall probability first (most forgotten cards).
 
         Args:
             now (datetime): The current time to check against.
@@ -293,8 +336,8 @@ class EbisuDatabase(SrsDatabase):
             # Calculate current recall probability
             recall_prob = ebisu.predictRecall(model, tnow, exact=True)
 
-            # Consider cards "due" if recall probability is below 0.5
-            if recall_prob < 0.5:
+            # Consider cards "due" if recall probability is below threshold
+            if recall_prob < self.knobs.recall_threshold:
                 due_cards.append((question_key, recall_prob))
 
         # Sort by recall probability (lowest first - most forgotten cards)
@@ -307,7 +350,7 @@ class EbisuDatabase(SrsDatabase):
         Returns the date/time of the next moment that a question is due.
 
         For Ebisu, this is the earliest time when any card's recall probability
-        drops below 0.5 (the half-life point).
+        drops below the configured threshold.
 
         Returns:
             Optional[datetime]: The next due date, or None if no questions are scheduled.

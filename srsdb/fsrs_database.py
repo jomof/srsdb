@@ -1,7 +1,48 @@
 import sqlite3
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional, List, Tuple
 from .srs_database import SrsDatabase
+
+
+@dataclass
+class FsrsKnobs:
+    """
+    Configuration parameters for the FSRS algorithm.
+
+    These parameters control the behavior of the FSRS scheduling algorithm.
+    The default values are based on the FSRS research and provide good
+    general-purpose scheduling.
+
+    Attributes:
+        w (List[float]): FSRS weight parameters (17 values). These control
+            the difficulty and stability calculations.
+        rating_thresholds (Tuple[int, int, int]): Thresholds for converting
+            correctness percentage to FSRS ratings (1-4). Format: (hard, good, easy).
+            Default: (25, 50, 85) means:
+            - < 25 = Again (rating 1)
+            - 25-49 = Hard (rating 2)
+            - 50-84 = Good (rating 3)
+            - >= 85 = Easy (rating 4)
+
+    Example:
+        >>> # Use default parameters
+        >>> knobs = FsrsKnobs()
+        >>> db = FsrsDatabase("my.db", knobs)
+        >>>
+        >>> # Customize thresholds to be more strict
+        >>> strict_knobs = FsrsKnobs(rating_thresholds=(30, 60, 90))
+        >>> db = FsrsDatabase("strict.db", strict_knobs)
+    """
+    w: List[float] = None
+    rating_thresholds: Tuple[int, int, int] = (25, 50, 85)
+
+    def __post_init__(self) -> None:
+        """Initialize default weights if not provided."""
+        if self.w is None:
+            # Default FSRS weights
+            self.w = [0.4, 0.6, 2.4, 5.8, 4.93, 0.94, 0.86, 0.01,
+                      1.49, 0.14, 0.94, 2.18, 0.05, 0.34, 1.26, 0.29, 2.61]
 
 
 class FsrsDatabase(SrsDatabase):
@@ -34,20 +75,28 @@ class FsrsDatabase(SrsDatabase):
         ['vocab_goodbye']
     """
 
-    def __init__(self, database_file: str) -> None:
+    def __init__(self, database_file: str, knobs: Optional[FsrsKnobs] = None) -> None:
         """
-        Initialize the FSRS database with a file path.
+        Initialize the FSRS database with a file path and optional configuration.
 
         Args:
             database_file (str): Path to the SQLite database file. Will be created
                 if it doesn't exist.
+            knobs (Optional[FsrsKnobs]): Configuration parameters for the FSRS algorithm.
+                If None, uses default parameters.
 
         Example:
+            >>> # Use default parameters
             >>> db = FsrsDatabase("my_flashcards.db")
+            >>>
+            >>> # Customize parameters
+            >>> custom_knobs = FsrsKnobs(rating_thresholds=(30, 60, 90))
+            >>> db = FsrsDatabase("strict.db", custom_knobs)
         """
         super().__init__(database_file)
         self._conn: Optional[sqlite3.Connection] = None
         self._is_open = False
+        self.knobs = knobs if knobs is not None else FsrsKnobs()
 
     def _open(self) -> None:
         """
@@ -126,11 +175,13 @@ class FsrsDatabase(SrsDatabase):
             >>> db._convert_correctness_to_rating(90)
             4
         """
-        if correct < 25:
+        hard_threshold, good_threshold, easy_threshold = self.knobs.rating_thresholds
+
+        if correct < hard_threshold:
             return 1  # Again
-        elif correct < 50:
+        elif correct < good_threshold:
             return 2  # Hard
-        elif correct < 85:
+        elif correct < easy_threshold:
             return 3  # Good
         else:
             return 4  # Easy
@@ -153,8 +204,8 @@ class FsrsDatabase(SrsDatabase):
                 - new_state (int): New card state
                 - scheduled_days (int): Days until next review
         """
-        # Simplified FSRS parameters
-        w = [0.4, 0.6, 2.4, 5.8, 4.93, 0.94, 0.86, 0.01, 1.49, 0.14, 0.94, 2.18, 0.05, 0.34, 1.26, 0.29, 2.61]
+        # Use configured FSRS parameters
+        w = self.knobs.w
 
         # Update difficulty
         new_difficulty = difficulty

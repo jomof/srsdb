@@ -6,13 +6,13 @@ using SQLite with support for different SRS algorithms.
 """
 
 from .srs_database import SrsDatabase
-from .fsrs_database import FsrsDatabase
+from .fsrs_database import FsrsDatabase, FsrsKnobs
 
 try:
-    from .ebisu_database import EbisuDatabase
-    __all__ = ["SrsDatabase", "FsrsDatabase", "EbisuDatabase"]
+    from .ebisu_database import EbisuDatabase, EbisuKnobs
+    __all__ = ["SrsDatabase", "FsrsDatabase", "FsrsKnobs", "EbisuDatabase", "EbisuKnobs"]
 except ImportError:
     # ebisu package not installed
-    __all__ = ["SrsDatabase", "FsrsDatabase"]
+    __all__ = ["SrsDatabase", "FsrsDatabase", "FsrsKnobs"]
 
 __version__ = "0.11.0"

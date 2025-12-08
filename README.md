@@ -181,6 +181,29 @@ next_review = db.next_due_date()
 print(f"Next review scheduled: {next_review}")
 ```
 
+### Customizing FSRS Parameters
+
+You can customize the FSRS algorithm behavior using `FsrsKnobs`:
+
+```python
+from srsdb import FsrsDatabase, FsrsKnobs
+
+# Create custom configuration
+knobs = FsrsKnobs(
+    rating_thresholds=(30, 60, 90),  # Stricter thresholds
+    # w=[...] # You can also customize the 17 FSRS weight parameters
+)
+
+# Use custom configuration
+db = FsrsDatabase("strict.db", knobs)
+```
+
+**Configuration Options:**
+- `rating_thresholds`: Tuple of (hard, good, easy) thresholds for converting correctness to ratings
+  - Default: `(25, 50, 85)` means < 25 = Again, 25-49 = Hard, 50-84 = Good, ≥ 85 = Easy
+- `w`: List of 17 FSRS weight parameters controlling difficulty and stability calculations
+  - Default: Research-based values providing good general-purpose scheduling
+
 ### Advanced Example: Learning Session
 
 ```python
@@ -276,6 +299,34 @@ for card in due:
 next_review = db.next_due_date()
 print(f"Next review: {next_review}")
 ```
+
+### Customizing Ebisu Parameters
+
+You can customize the Ebisu algorithm behavior using `EbisuKnobs`:
+
+```python
+from srsdb import EbisuDatabase, EbisuKnobs
+
+# Create custom configuration
+knobs = EbisuKnobs(
+    default_half_life_hours=12.0,  # Faster reviews (default: 24.0)
+    recall_threshold=0.7,           # More conservative (default: 0.5)
+    target_recall=0.7               # Higher target (default: 0.5)
+)
+
+# Use custom configuration
+db = EbisuDatabase("custom.db", knobs)
+```
+
+**Configuration Options:**
+- `default_half_life_hours`: Initial half-life for new cards in hours
+  - Default: `24.0` (1 day)
+  - Lower values = more frequent initial reviews
+- `recall_threshold`: Recall probability threshold for considering cards due
+  - Default: `0.5` (cards with < 50% recall probability are due)
+  - Higher values = more conservative, cards reviewed earlier
+- `target_recall`: Target recall probability for scheduling
+  - Default: `0.5` (schedule at half-life point)
 
 ### Key Differences from FSRS
 
